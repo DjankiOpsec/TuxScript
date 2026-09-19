@@ -44,6 +44,7 @@ local State = {
     Fly = false,
     FlySpeed = 60,
     NoClip = false,
+    NoFallDamage = false,
     InfJump = false,
     AntiAFK = false,
     
@@ -916,6 +917,43 @@ registerConn(RunService.Stepped:Connect(function()
 end))
 addModuleToggle(playerScroll, "NoClip 👻", false, function(enabled)
     State.NoClip = enabled
+end)
+
+-- No Fall Damage
+local fallDamageConn
+local function setupFallDamage(char)
+    if not char then return end
+    local hum = char:WaitForChild("Humanoid", 3) or char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        local conn = hum.StateChanged:Connect(function(oldState, newState)
+            if State.NoFallDamage and (newState == Enum.HumanoidStateType.Freefall or newState == Enum.HumanoidStateType.Landed) then
+                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+        end)
+        registerConn(conn)
+    end
+end
+
+if LocalPlayer.Character then
+    setupFallDamage(LocalPlayer.Character)
+end
+registerConn(LocalPlayer.CharacterAdded:Connect(setupFallDamage))
+
+-- Extra safety net: neutralizes high downward fall velocity right before ground impact
+registerConn(RunService.Stepped:Connect(function()
+    if State.NoFallDamage and LocalPlayer.Character then
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hrp and hum and hum:GetState() == Enum.HumanoidStateType.Freefall then
+            if hrp.AssemblyLinearVelocity.Y < -50 then
+                hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -25, hrp.AssemblyLinearVelocity.Z)
+            end
+        end
+    end
+end))
+
+addModuleToggle(playerScroll, "No Fall Damage 🪂", false, function(enabled)
+    State.NoFallDamage = enabled
 end)
 
 -- Infinite Jump
